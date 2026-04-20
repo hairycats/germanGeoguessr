@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Geoguessr Player</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.27/esri/themes/light/main.css" />
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+        .info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 100;
+            max-width: 300px;
+        }
+        .info-panel h2 {
+            margin: 0 0 10px 0;
+        }
+        .info-panel p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        .submitted {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="info-panel">
+        <h2>📍 Guess the Location</h2>
+        <p>Click anywhere on the map to make your guess!</p>
+        <div id="status"></div>
+    </div>
+
+    <script src="https://js.arcgis.com/4.27/"></script>
+    <script>
+        // Configuration - UPDATE THESE
+        const CONFIG = {
+            GOOGLE_SHEET_ID: 'YOUR_SHEET_ID_HERE',
+            GOOGLE_SCRIPT_URL: 'https://script.google.com/macros/d/YOUR_SCRIPT_ID/usercontent',
+            CURRENT_LOCATION_ID: 1,  // Update as you go through locations
+            PLAYER_NUMBER: 1          // 1 or 2
+        };
+
+        const app = {
+            map: null,
+            graphicsLayer: null,
+            guessSubmitted: false,
+
+            async init() {
+                const { Map } = await require(["esri/Map"]);
+                const MapView = await require(["esri/views/MapView"]);
+                const GraphicsLayer = await require(["esri/layers/GraphicsLayer"]);
+
+                this.map = new Map({
+                    basemap: "streets-vector"
+                });
+
+                const view = new MapView({
+                    container: "map",
+                    map: this.map,
+                    center: [-122.6762, 45.5234],  // Default to Portland
+                    zoom: 4
+                });
+
+                this.graphicsLayer = new GraphicsLayer();
+                this.map.add(this.graphicsLayer);
+
+                // Add click handler
+                view.on('click', (event) => this.handleMapClick(event));
+
+                this.updateStatus('Ready to guess!');
+            },
+
+            async handleMapClick(event) {
+                if (this.guessSubmitted) {
+                    this.updateStatus('⚠️ You already submitted a guess for this location!');
+                    return;
+                }
+
+                const lat = event.mapPoint.latitude;
+                const lon = event.mapPoint.longitude;
+
+                // Add waypoint to map
+                this.addWaypoint(lat, lon);
+
+                // Submit to Google Sheet
+                await this.submitGuess(lat, lon);
+            },
+
+            async addWaypoint(lat, lon) {
+                const { Point, Graphic } = await require(["esri/geometry/Point", "esri/Graphic"]);
+
+                const point = new Point({
+                    longitude: lon,
+                    latitude: lat
+                });
+
+                const graphic = new Graphic({
+                    geometry: point,
+                    symbol: {
+                        type: "simple-marker",
+                        color: [226, 119, 40],
+                        size: "14px",
+                        outline: {
+                            color: "#fff",
+                            width: 2
+                        }
+                    }
+                });
+
+                this.graphicsLayer.add(graphic);
+            },
+
+            async submitGuess(latitude, longitude) {
+                this.updateStatus('⏳ Submitting guess...');
+
+                const payload = {
+                    locationId: CONFIG.CURRENT_LOCATION_ID,
+                    playerNumber: CONFIG.PLAYER_NUMBER,
+                    latitude: latitude,
+                    longitude: longitude,
+                    timestamp: new Date().toISOString()
+                };
+
+                try {
+                    const response = await fetch(CONFIG.GOOGLE_SCRIPT_URL, {
+                        method: 'POST',
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.guessSubmitted = true;
+                        this.updateStatus(
+                            `✅ Guess submitted!<br><br>
+                             <strong>Coordinates:</strong><br>
+                             ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+                        );
+                    } else {
+                        this.updateStatus('❌ Error submitting guess. Try again.');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    this.updateStatus('❌ Error submitting guess. Check console.');
+                }
+            },
+
+            updateStatus(message) {
+                const statusDiv = document.getElementById('status');
+                statusDiv.innerHTML = `<div class="submitted">${message}</div>`;
+            }
+        };
+
+        app.init();
+    </script>
+</body>
+</html>
