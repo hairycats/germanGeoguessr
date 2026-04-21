@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Security-Policy" content="frame-ancestors *;">
+  <style>
+    body { margin: 0; }
+    #street-view { width: 1200px; height: 500px; }
+  </style>
+</head>
+<body>
+  <div id="street-view"></div>
+  <script>
+    function initStreetView() {
+      const panorama = new google.maps.StreetViewPanorama(
+        document.getElementById("street-view"),
+        {
+          position: { lat: 51.0523345, lng: 13.7419005 },
+          pov: { heading: 200, pitch: 0 },
+          zoom: 1,
+          addressControl: false,
+          showRoadLabels: false,
+          fullscreenControl: false,
+          zoomControl: false,
+          panControl: false,
+          linksControl: false
+        }
+      );
+    }
+  </script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC-FmQnZPEPG4jRGHYVv1saE73Q0U4yDjA&callback=initStreetView" async defer></script>
+</body>
+</html>
