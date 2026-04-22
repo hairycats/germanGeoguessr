@@ -16,8 +16,6 @@
     const player = params.get("player") || "unknown";
     const city   = params.get("city")   || "unknown";
 
-    // --- City definitions: fill in your real cities here ---
-    // Each entry sets the map's default center and zoom for that city.
     const CITIES = {
       berlin:    { lat: 52.5200, lng: 13.4050, zoom: 11 },
       munich:    { lat: 48.1351, lng: 11.5820, zoom: 11 },
@@ -31,16 +29,12 @@
       dusseldorf:{ lat: 51.2217, lng: 6.7762,  zoom: 11 },
     };
 
-    // Fall back to center of Germany if city not recognized
     const cityConfig = CITIES[city.toLowerCase()] || { lat: 51.1657, lng: 10.4515, zoom: 6 };
 
     let currentMarker = null;
     let currentRow    = null;
-    let lastLatLng    = null;
-
-    function distanceMeters(a, b) {
-      return google.maps.geometry.spherical.computeDistanceBetween(a, b);
-    }
+    let lastClickTime = 0;          // timestamp of previous click
+    const DOUBLE_CLICK_MS = 400;    // clicks within this window = double-click
 
     function initMap() {
       const map = new google.maps.Map(document.getElementById("map"), {
@@ -49,12 +43,12 @@
       });
 
       map.addListener("click", async (e) => {
-        const clickedLatLng = e.latLng;
-        const lat = clickedLatLng.lat();
-        const lng = clickedLatLng.lng();
+        const now = Date.now();
+        const isDoubleClick = (now - lastClickTime) < DOUBLE_CLICK_MS;
+        lastClickTime = now;
 
-        // --- Double-click on same spot: delete point ---
-        if (lastLatLng && distanceMeters(clickedLatLng, lastLatLng) < 1000000) {
+        // --- Double-click: delete current point and clear ---
+        if (isDoubleClick) {
           if (currentMarker) {
             currentMarker.setMap(null);
             currentMarker = null;
@@ -71,11 +65,12 @@
             }
             currentRow = null;
           }
-          lastLatLng = null;
           return;
         }
 
-        // --- New click: replace marker and update sheet ---
+        // --- Single click: replace existing point with new one ---
+
+        // Delete previous sheet row first
         if (currentRow) {
           try {
             await fetch(APPS_SCRIPT_URL, {
@@ -89,17 +84,22 @@
           currentRow = null;
         }
 
+        // Remove previous marker
         if (currentMarker) {
           currentMarker.setMap(null);
+          currentMarker = null;
         }
+
+        // Place new marker
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
 
         currentMarker = new google.maps.Marker({
           position: { lat, lng },
           map
         });
-        lastLatLng = clickedLatLng;
 
-        // Save to sheet — now includes city
+        // Save to sheet
         try {
           const res = await fetch(APPS_SCRIPT_URL, {
             method: "POST",
@@ -115,6 +115,6 @@
     }
   </script>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC-FmQnZPEPG4jRGHYVv1saE73Q0U4yDjA&libraries=geometry&callback=initMap" async defer></script>
+  <script src="https://script.google.com/macros/s/AKfycbzP-ZzfNVJqj75-tUc4kLVdhrXGuiqI0kseEzeB2M06Q3e4A7A79sgQF3Xxr12rtdr6/exec" async defer></script>
 </body>
 </html>
