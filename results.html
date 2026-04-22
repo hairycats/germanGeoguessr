@@ -55,7 +55,7 @@
     <option value="">-- Select a city --</option>
     <option value="berlin">Berlin</option>
     <option value="munchen">München</option>
-    <option value="heidelberg">Heidelberg</option>
+    <option value="heidelburg">Heidelberg</option>
     <option value="hamburg">Hamburg</option>
     <option value="leipzig">Leipzig</option>
     <option value="frankfurt">Frankfurt</option>
@@ -80,7 +80,7 @@
     const ANSWERS = {
       "berlin":     { lat: 52.5170908, lng: 13.3805742 },
       "munchen":    { lat: 48.159008, lng: 11.5058738 },
-      "heidelberg": { lat: 49.4112102, lng:  8.6910097 },
+      "heidelburg": { lat: 49.4112102, lng:  8.6910097 }, //fuckass spelled heidelberg heidelburg need to fix like this
       "hamburg":    { lat: 53.5447493, lng: 9.9892558 },
       "leipzig":    { lat: 51.3479304, lng: 12.3711808 },
       "frankfurt":  { lat: 50.1036346, lng:  8.6736363 },
@@ -129,7 +129,7 @@
       const answer = ANSWERS[city];
       if (!answer) { setStatus("No answer coordinates found for this city."); return; }
 
-      setStatus("Fetching guesses from sheet...");
+      setStatus("");
       document.getElementById("distances").innerHTML = "";
       clearMarkers();
 
@@ -146,7 +146,7 @@
       }
 
       if (!p1 && !p2) {
-        setStatus("No guesses found in the sheet for this city.");
+        setStatus("No guesses found for this city.");
         return;
       }
 
