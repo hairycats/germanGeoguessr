@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body { margin: 0; }
+    #map { height: 100vh; width: 100%; }
+    #status { position: absolute; top: 10px; left: 10px; z-index: 999;
+              background: white; padding: 8px 12px; border-radius: 6px;
+              font-family: sans-serif; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+  </style>
+</head>
+<body>
+  <div id="status">Click anywhere on the map to record a point</div>
+  <div id="map"></div>
+
+  <script>
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzPiz_OFgV9JJRm7rgIE9xuCsobRAwJ_3PBwBm5ewiy-w-JYGewWQTFTOHThplLjW0R/exec"; // ← paste your Web App URL
+
+    function initMap() {
+      const map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 39.833, lng: -98.583 }, // center of US — adjust as needed
+        zoom: 4
+      });
+
+      map.addListener("click", async (e) => {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+
+        new google.maps.Marker({ position: { lat, lng }, map });
+
+        document.getElementById("status").textContent = `Saving (${lat.toFixed(4)}, ${lng.toFixed(4)})...`;
+
+        try {
+          await fetch(APPS_SCRIPT_URL, {
+            method: "POST",
+            mode: "no-cors",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lat, lng })
+          });
+          document.getElementById("status").textContent = `✓ Saved (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+        } catch (err) {
+          document.getElementById("status").textContent = "Error saving point";
+        }
+      });
+    }
+  </script>
+
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC-FmQnZPEPG4jRGHYVv1saE73Q0U4yDjA&callback=initMap" async defer></script>
+</body>
+</html>
