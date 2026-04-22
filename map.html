@@ -54,7 +54,7 @@
         const lng = clickedLatLng.lng();
 
         // --- Double-click on same spot: delete point ---
-        if (lastLatLng && distanceMeters(clickedLatLng, lastLatLng) < 1000) {
+        if (lastLatLng && distanceMeters(clickedLatLng, lastLatLng) < 1000000) {
           if (currentMarker) {
             currentMarker.setMap(null);
             currentMarker = null;
