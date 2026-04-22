@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>GeoGuessr Results</title>
+  <style>
+    body {
+      font-family: monospace;
+      max-width: 900px;
+      margin: 20px auto;
+      padding: 0 16px;
+      background: #fff;
+      color: #000;
+    }
+    h2 { margin-bottom: 12px; }
+    label { font-weight: bold; }
+    select, button {
+      font-family: monospace;
+      font-size: 14px;
+      padding: 4px 8px;
+      margin: 4px 0;
+      border: 1px solid #000;
+      background: #fff;
+      cursor: pointer;
+    }
+    button:hover { background: #eee; }
+    #map {
+      width: 100%;
+      height: 500px;
+      border: 1px solid #000;
+      margin: 12px 0;
+    }
+    #status {
+      font-size: 13px;
+      color: #555;
+      margin: 4px 0 8px 0;
+      min-height: 18px;
+    }
+    #distances {
+      font-size: 15px;
+      line-height: 2;
+    }
+    #distances span {
+      display: inline-block;
+      min-width: 120px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Results Viewer</h2>
+
+  <label for="citySelect">City:</label><br>
+  <select id="citySelect">
+    <option value="">-- Select a city --</option>
+    <option value="berlin">Berlin</option>
+    <option value="münchen">München</option>
+    <option value="heidelberg">Heidelberg</option>
+    <option value="hamburg">Hamburg</option>
+    <option value="leipzig">Leipzig</option>
+    <option value="frankfurt">Frankfurt</option>
+    <option value="köln">Köln</option>
+    <option value="dresden">Dresden</option>
+  </select>
+  <br><br>
+  <button id="enterBtn">Enter</button>
+
+  <div id="status"></div>
+  <div id="map"></div>
+  <div id="distances"></div>
+
+  <script>
+    // -------------------------------------------------------
+    // CONFIG — fill these in
+    // -------------------------------------------------------
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzbrNVGPehryaeDGsOTlcr6DN0OuBtvT5T9Yb-NyoGOmfFSiWhVWoUSJfH8D-wv0Bk/exec";
+
+    // Hardcoded answer coordinates for each city
+    // Replace these with your actual target locations
+    const ANSWERS = {
+      "berlin":     { lat: 52.5200, lng: 13.4050 },
+      "münchen":    { lat: 48.1351, lng: 11.5820 },
+      "heidelberg": { lat: 49.3988, lng:  8.6724 },
+      "hamburg":    { lat: 53.5753, lng: 10.0153 },
+      "leipzig":    { lat: 51.3397, lng: 12.3731 },
+      "frankfurt":  { lat: 50.1109, lng:  8.6821 },
+      "köln":       { lat: 50.9333, lng:  6.9500 },
+      "dresden":    { lat: 51.0504, lng: 13.7373 },
+    };
+    // -------------------------------------------------------
+
+    let map = null;
+    let markers = [];
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 51.1657, lng: 10.4515 },
+        zoom: 6
+      });
+    }
+
+    function clearMarkers() {
+      markers.forEach(m => {
+        if (m.marker) m.marker.setMap(null);
+        if (m.line)   m.line.setMap(null);
+      });
+      markers = [];
+    }
+
+    function haversinemiles(lat1, lng1, lat2, lng2) {
+      const R = 3958.8; // Earth radius in miles
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) *
+                Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng/2) ** 2;
+      return R * 2 * Math.asin(Math.sqrt(a));
+    }
+
+    function setStatus(msg) {
+      document.getElementById("status").textContent = msg;
+    }
+
+    document.getElementById("enterBtn").addEventListener("click", async () => {
+      const city = document.getElementById("citySelect").value;
+      if (!city) { setStatus("Please select a city."); return; }
+
+      const answer = ANSWERS[city];
+      if (!answer) { setStatus("No answer coordinates found for this city."); return; }
+
+      setStatus("Fetching guesses from sheet...");
+      document.getElementById("distances").innerHTML = "";
+      clearMarkers();
+
+      // Fetch guesses from Apps Script
+      let p1 = null, p2 = null;
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getGuesses&city=${encodeURIComponent(city)}`);
+        const json = await res.json();
+        p1 = json.player1;
+        p2 = json.player2;
+      } catch (err) {
+        setStatus("Error fetching guesses: " + err.message);
+        return;
+      }
+
+      if (!p1 && !p2) {
+        setStatus("No guesses found in the sheet for this city.");
+        return;
+      }
+
+      setStatus("");
+
+      // Center map on answer
+      map.setCenter({ lat: answer.lat, lng: answer.lng });
+      map.setZoom(8);
+
+      const bounds = new google.maps.LatLngBounds();
+
+      // --- Answer marker (black) ---
+      const answerPos = { lat: answer.lat, lng: answer.lng };
+      const answerMarker = new google.maps.Marker({
+        position: answerPos,
+        map,
+        label: { text: "✓", color: "white" },
+        title: "Answer",
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: "#000",
+          fillOpacity: 1,
+          strokeColor: "#000",
+          strokeWeight: 1,
+        }
+      });
+      markers.push({ marker: answerMarker });
+      bounds.extend(answerPos);
+
+      let distHTML = "";
+
+      // --- Player 1 marker (blue) ---
+      if (p1) {
+        const p1Pos = { lat: p1.lat, lng: p1.lng };
+        const p1Marker = new google.maps.Marker({
+          position: p1Pos,
+          map,
+          title: "Player 1",
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: "#1a73e8",
+            fillOpacity: 1,
+            strokeColor: "#fff",
+            strokeWeight: 1,
+          }
+        });
+        const p1Line = new google.maps.Polyline({
+          path: [p1Pos, answerPos],
+          map,
+          strokeColor: "#1a73e8",
+          strokeOpacity: 0.6,
+          strokeWeight: 1.5
+        });
+        markers.push({ marker: p1Marker, line: p1Line });
+        bounds.extend(p1Pos);
+        const d1 = haversinemiles(p1.lat, p1.lng, answer.lat, answer.lng);
+        distHTML += `<div>🔵 <span>Player 1:</span> <strong>${d1.toFixed(1)} miles</strong></div>`;
+      } else {
+        distHTML += `<div>🔵 <span>Player 1:</span> no guess found</div>`;
+      }
+
+      // --- Player 2 marker (red) ---
+      if (p2) {
+        const p2Pos = { lat: p2.lat, lng: p2.lng };
+        const p2Marker = new google.maps.Marker({
+          position: p2Pos,
+          map,
+          title: "Player 2",
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: "#d93025",
+            fillOpacity: 1,
+            strokeColor: "#fff",
+            strokeWeight: 1,
+          }
+        });
+        const p2Line = new google.maps.Polyline({
+          path: [p2Pos, answerPos],
+          map,
+          strokeColor: "#d93025",
+          strokeOpacity: 0.6,
+          strokeWeight: 1.5
+        });
+        markers.push({ marker: p2Marker, line: p2Line });
+        bounds.extend(p2Pos);
+        const d2 = haversinemiles(p2.lat, p2.lng, answer.lat, answer.lng);
+        distHTML += `<div>🔴 <span>Player 2:</span> <strong>${d2.toFixed(1)} miles</strong></div>`;
+      } else {
+        distHTML += `<div>🔴 <span>Player 2:</span> no guess found</div>`;
+      }
+
+      document.getElementById("distances").innerHTML = distHTML;
+      map.fitBounds(bounds, { padding: 60 });
+    });
+  </script>
+
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap" async defer></script>
+</body>
+</html>
