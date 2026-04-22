@@ -10,24 +10,42 @@
   <div id="map"></div>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyMcSfVtvncFcce0F8HKoE7KYRxop-CwLVO_L0Y2ri_BqX8VlcahrnU-cojUytxqAlI/exec";
+    const APPS_SCRIPT_URL = "YOUR_WEB_APP_URL_HERE";
 
-    // Read ?player=1 or ?player=2 from the URL
-    const player = new URLSearchParams(window.location.search).get("player") || "unknown";
+    const params = new URLSearchParams(window.location.search);
+    const player = params.get("player") || "unknown";
+    const city   = params.get("city")   || "unknown";
+
+    // --- City definitions: fill in your real cities here ---
+    // Each entry sets the map's default center and zoom for that city.
+    const CITIES = {
+      berlin:    { lat: 52.5200, lng: 13.4050, zoom: 11 },
+      munich:    { lat: 48.1351, lng: 11.5820, zoom: 11 },
+      hamburg:   { lat: 53.5753, lng: 10.0153, zoom: 11 },
+      cologne:   { lat: 50.9333, lng: 6.9500,  zoom: 11 },
+      frankfurt: { lat: 50.1109, lng: 8.6821,  zoom: 11 },
+      stuttgart: { lat: 48.7758, lng: 9.1829,  zoom: 11 },
+      dresden:   { lat: 51.0504, lng: 13.7373, zoom: 11 },
+      leipzig:   { lat: 51.3397, lng: 12.3731, zoom: 11 },
+      nuremberg: { lat: 49.4521, lng: 11.0767, zoom: 11 },
+      dusseldorf:{ lat: 51.2217, lng: 6.7762,  zoom: 11 },
+    };
+
+    // Fall back to center of Germany if city not recognized
+    const cityConfig = CITIES[city.toLowerCase()] || { lat: 51.1657, lng: 10.4515, zoom: 6 };
 
     let currentMarker = null;
-    let currentRow = null;       // sheet row of the current point
-    let lastLatLng = null;       // LatLng of the current point
+    let currentRow    = null;
+    let lastLatLng    = null;
 
-    // Returns distance in metres between two google.maps.LatLng objects
     function distanceMeters(a, b) {
       return google.maps.geometry.spherical.computeDistanceBetween(a, b);
     }
 
     function initMap() {
       const map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: 51.1657, lng: 10.4515 },
-        zoom: 6
+        center: { lat: cityConfig.lat, lng: cityConfig.lng },
+        zoom: cityConfig.zoom
       });
 
       map.addListener("click", async (e) => {
@@ -36,7 +54,7 @@
         const lng = clickedLatLng.lng();
 
         // --- Double-click on same spot: delete point ---
-        if (lastLatLng && distanceMeters(clickedLatLng, lastLatLng) < 1000000) {
+        if (lastLatLng && distanceMeters(clickedLatLng, lastLatLng) < 1000) {
           if (currentMarker) {
             currentMarker.setMap(null);
             currentMarker = null;
@@ -58,7 +76,6 @@
         }
 
         // --- New click: replace marker and update sheet ---
-        // Delete previous sheet row if one exists
         if (currentRow) {
           try {
             await fetch(APPS_SCRIPT_URL, {
@@ -72,24 +89,22 @@
           currentRow = null;
         }
 
-        // Remove previous marker
         if (currentMarker) {
           currentMarker.setMap(null);
         }
 
-        // Place new marker
         currentMarker = new google.maps.Marker({
           position: { lat, lng },
           map
         });
         lastLatLng = clickedLatLng;
 
-        // Save to sheet and store the returned row number
+        // Save to sheet — now includes city
         try {
           const res = await fetch(APPS_SCRIPT_URL, {
             method: "POST",
             headers: { "Content-Type": "text/plain" },
-            body: JSON.stringify({ player, lat, lng })
+            body: JSON.stringify({ player, city, lat, lng })
           });
           const json = await res.json();
           if (json.row) currentRow = json.row;
@@ -100,6 +115,6 @@
     }
   </script>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC-FmQnZPEPG4jRGHYVv1saE73Q0U4yDjA&libraries=geometry&callback=initMap" async defer></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=geometry&callback=initMap" async defer></script>
 </body>
 </html>
