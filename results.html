@@ -205,9 +205,9 @@
         markers.push({ marker: p1Marker, line: p1Line });
         bounds.extend(p1Pos);
         const d1 = haversinemiles(p1.lat, p1.lng, answer.lat, answer.lng);
-        distHTML += `<div>🔵 <span>Player 1:</span> <strong>${d1.toFixed(1)} miles</strong></div>`;
+        distHTML += `<div>🔵 <span>Gruppe 1:</span> <strong>${d1.toFixed(1)} miles</strong></div>`;
       } else {
-        distHTML += `<div>🔵 <span>Player 1:</span> no guess found</div>`;
+        distHTML += `<div>🔵 <span>Gruppe 1:</span> no guess found</div>`;
       }
 
       // --- Player 2 marker (red) ---
@@ -236,9 +236,9 @@
         markers.push({ marker: p2Marker, line: p2Line });
         bounds.extend(p2Pos);
         const d2 = haversinemiles(p2.lat, p2.lng, answer.lat, answer.lng);
-        distHTML += `<div>🔴 <span>Player 2:</span> <strong>${d2.toFixed(1)} miles</strong></div>`;
+        distHTML += `<div>🔴 <span>Gruppe 2:</span> <strong>${d2.toFixed(1)} miles</strong></div>`;
       } else {
-        distHTML += `<div>🔴 <span>Player 2:</span> no guess found</div>`;
+        distHTML += `<div>🔴 <span>Gruppe 2:</span> no guess found</div>`;
       }
 
       document.getElementById("distances").innerHTML = distHTML;
